@@ -1,0 +1,249 @@
+---
+title: "Breast Cancer Data Analysis and Predictions"
+author: "Morgan Taylor"
+mainfont: Times New Roman
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+----
+
+```{r echo=FALSE, fig.align='center', out.width='100%'}
+knitr::include_graphics('./breast-cancer-stat.jpg')
+```
+
+## Problem Statement
+
+Breast cancer causes the greatest number of cancer-related deaths among women.This year, an estimated 42,170 women will die from breast cancer in the U.S., (according to www.nationalbreastcancer.org). Using prediction techniques on genetic data has the potentials of giving the correct estimation of survival time and can prevent unnecessary surgical and treatment procedures. 
+
+"The Molecular Taxonomy of Breast Cancer International Consortium (METABRIC) database is a Canada-UK Project which contains targeted sequencing data of 1,980 primary breast cancer samples. Clinical and genomic data was downloaded from cBioPortal."
+
+The dataset was collected by Professor Carlos Caldas from Cambridge Research Institute and Professor Sam Aparicio from the British Columbia Cancer Centre in Canada. Therefore, our population is woman who have visited this Cancer Centre. 
+A description of your data,
+e.g. what is the unit of observation,
+what is the response variable, what are the predictors,
+how was the data collected, reference etc.
+Comment whether this sample of data is suitable to assess your population.
+
+## Data Description
+
+The dataset was obtained from 'Kaggle' and contains 693 variables and 1,904 observations. This file includes 31 clinical attributes, m-RNA levels z-score for 331 genes, and mutation in 175 genes for 1904 breast cancer patients. The data was originally collected by Professor Carlos Caldas from Cambridge Research Institute and Professor Sam Aparicio from the British Columbia Cancer Centre in Canada. This data is representative of my population because this information includes patients who have been examined for breast cancer at varying levels rencently in the year 2020. For the purpose of this analysis I will be reducing the number of variables to 31 of the most relevant to this modeling. There was then the removal of 'NA' items in order for missing observations to be retracted from the dataset. 
+
+----
+
+```{r include=FALSE}
+dat <- read.csv("./METABRIC_RNA_Mutation.csv")
+newdat <- na.omit(dat)
+```
+
+```{r echo=FALSE, layout="l-body-outset"}
+library(rmarkdown)
+paged_table(newdat, options = list(rows.print = 15))
+```
+### Data Summarization 
+
+* The **response variable** is *'overall_survival_months'* which represents the duration from the time of the intervention to death in months.
+
+* The **predictor variables** are *'age_at_diagnosis'*: age of the patient at diagnosis time, *'cellularity'*: cancer cellularity post chemotherapy, which refers to the amount of tumor cells in the specimen and their arrangement into clusters classifed as ("Low", "Moderate", or "High"), *'tumor_size'*: tumor size measured by imaging techniques in centimeters, and *'tumor_stage'*: the stage of the cancer based on the involvement of surrounding structures, lymph nodes and distant spread on a scale of 1-4. 
+
+##### Average Age at Diagnosis
+```{r echo=FALSE}
+mean(newdat$age_at_diagnosis)
+```
+
+The average age of women diagnosised with breast cancer at the British Columbia Cancer Centre in Canada is approximately 60 years of age.
+
+----
+
+##### Scatterplots of Predictors
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(gridExtra)
+library(ggplot2)
+ggp1 <- ggplot(newdat, aes(x = age_at_diagnosis, y = overall_survival_months)) +      
+geom_point() +
+  labs(x= "Age at Diagnosis", y= "Overall Survival (mths)")
+
+ggp2 <- ggplot(newdat, aes(x = cellularity, y = overall_survival_months)) + 
+  geom_point() +
+  labs(x= "Cellularity", y= "Overall Survival (mths)")
+
+ggp3 <- ggplot(newdat, aes(x = tumor_size, y = overall_survival_months)) +
+  geom_point() +
+  labs(x= "Tumor Size (cm)", y= "Overall Survival (mths)")
+
+ggp4 <- ggplot(newdat, aes(x = tumor_stage, y = overall_survival_months)) +
+  geom_point() +
+  labs(x= "Tumor Stage", y= "Overall Survival (mths)")
+
+grid.arrange(ggp1, ggp2, ggp3, ggp4, ncol = 2) 
+```
+
+
+
+----
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Libraries
+library(ggplot2)
+library(dplyr)
+ggplot(newdat, aes(x = type_of_breast_surgery, fill = cellularity)) +
+  geom_bar() + 
+  scale_fill_manual(values = c("grey", "#D94496", 
+                               "#F47DBB", "#FFB6D5")) +
+  labs(title = "Type of Breast Surgery vs The Cellularity", x = "Type of Breast Surgery", y = "Cellularity")
+```
+
+----
+
+The type of breast surgery variable is an object type that describes:
+
+* **MASTECTOMY:** which refers to a surgery to remove all breast tissue from a breast as a way to treat or prevent breast cancer.
+
+* **BREAST CONSERVING:** which refers to a urgery where only the part of the breast that has cancer is removed.
+
+The cellularity variable is an object that describes the cancer cellularity post chemotherapy, which refers to the amount of tumor cells in the specimen and their arrangement into clusters.
+
+The higher the cellularity found in the breast tissue is, the more likely the mass is to be considered malignant and in need of removal. Therefore, there is a higher distribution of needing to remove all the breast tissue by performing a mastectomy when the level of cellularity is at an increase.
+
+----
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(GGally)
+data(newdat)
+ggpairs(newdat, columns = 2, ggplot2::aes(colour=death_from_cancer)) +
+  scale_fill_manual(values = c("grey", "#D94496", "#F47DBB", "#FFB6D5")) +
+labs(title = "Correlation Graph of Age at Diagonsis")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(GGally)
+data(newdat)
+ggpairs(newdat, columns = 29, ggplot2::aes(colour=death_from_cancer)) +
+  scale_fill_manual(values = c("grey", "#D94496", "#F47DBB", "#FFB6D5")) +
+labs(title = "Correlation Graph of Tumor Size")
+```
+
+## Simple Linear Regression
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, figures-side, fig.show="hold", out.width="50%"}
+library(gridExtra)
+
+newmodel <- lm(overall_survival_months~tumor_size, data=newdat)
+
+par(mar = c(4, 4, .1, .1))
+
+plot(newdat$overall_survival_months~newdat$tumor_size,xlab="Tumor Size",ylab="Overall Survival (mths)")
+
+plot(newdat$tumor_size, newdat$overall_survival_months, xlab="Tumor Size",ylab="Overall Survival (mths)") 
+abline(newmodel)
+
+```
+
+
+```{r echo=FALSE}
+library(equatiomatic)
+equatiomatic::extract_eq(newmodel)
+```
+
+----
+
+The dependent variable here is the "overall survival months" and the explanatory here is the "tumor size". The trend shown within the scatterplots show that the smaller the tumor in size, then the larger the number of months the patient spends alive. This could be related to the more aggressive the cancer becomes as it grows in size or metastasizes.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(olsrr)
+ols_plot_resid_stand(newmodel)
+```
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(knitr)
+kable(newdat[130,(24:29)], caption = "Outlier 130")
+kable(newdat[702,(24:29)], caption = "Outlier 702")
+kable(newdat[717,(24:29)], caption = "Outlier 717")
+```
+
+----
+
+The maximum amount of overall survival months among the breast cancer patients in this dataset are 351 months and the minimum amount is 0.1 month. 
+
+The largest tumor size among the breast cancer patients in this dataset is 180cm and the smallest size is 1cm.
+
+The outliers that I have identified could account for patients who chose to seek chemotherapy to slow or kill the disease (as well as choosing surgery or opting out). There are also possibilities such as a late diagnosis or a smaller size tumor that consisted of a high cluster of cellularity (presenting as more aggressive).
+
+
+
+## Multiple Regression
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+mlr.model <- lm(overall_survival_months ~ tumor_size + tumor_stage + cellularity + age_at_diagnosis ,data=newdat)
+mlr.model
+```
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+equatiomatic::extract_eq(mlr.model,use_coefs=TRUE, wrap = TRUE)
+```
+
+----
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(gridExtra)
+fit <- ols_plot_resid_fit(mlr.model)
+stud <- ols_plot_resid_stud(mlr.model)
+qq <- ols_plot_resid_qq(mlr.model)
+lev <- ols_plot_resid_lev(mlr.model)
+```
+
+----
+
+##### Comparing the Simple Linear Model and the Multiple Regression Model
+Both the adjusted R-squared (is higher for model 2) and the AIC suggests that model 2 does a better job.
+
+----
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+model1summary <- summary(newmodel)
+model2summary <- summary(mlr.model)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Adjusted R2
+paste("Model 1:",round(model1summary$adj.r.squared,2) )
+paste("Model 2:",round(model2summary$adj.r.squared,2) )
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(knitr)
+kable(AIC(newmodel,mlr.model))
+```
+
+## Hypothesis Test
+
+**Null Hypothesis:** the errors follow a normal distribution. 
+
+**Alternative Hypothesis:** the errors do not follow a normal distribution.
+
+The critical threshold is **0.05**
+
+**Two-sided** (Normal Distribution)
+
+```{r echo=FALSE}
+dist <- rnorm(mlr.model)
+dist
+```
+
+```{r echo=FALSE}
+library(nortest)
+ad.test(rnorm(mlr.model))
+```
+
+Since the Anderson-Darling test statistic is 0.1938 with an associated p-value of 0.867, we fail to reject the null hypothesis and conclude that it is reasonable to assume that the errors have a normal distribution
+
+## Summary and Reflection
+
+```{r echo=FALSE, fig.align='center', out.width='100%'}
+knitr::include_graphics('./michigan-med-l-gene-educate-keyvisual.jpg')
+```
+
+Given what I know about regression I believe I have done a relevant job with the model. Some parts I would want to improve would be the exploratory data  analysis on the variables I decided not to currently focus on in these two models. I would also like to incorporated the merging of other data sets of collected breast cancer patient information, but from another population of maybe women from a cancer center in the United States or another region.
+
+In summary, my population of women patients from the British Columbia Cancer Centre in Canada includes a large number of women that are being affected by a disease that is still taking thousands of lives each year. There are several cases of women you have also continued to live after diagnosis and patients currently undergoing treatments to fight against it such as chemotherapy. This dataset and my findings show that there is a high correlation between the amount time a breast cancer has to live based on at what age the cancer is first caught, the level of cellularity in the breast tissue, and the size and stage of tumor. 
+
+When these factors are taken into account it allows for a judgment call to made between doctor and patient. There is the ability to look at the probability a patient will live (in months). This can be the deciding factor between a fighting chance undergoing chemotherapy or peaceful last days with family members that won't leave your family in debt.
